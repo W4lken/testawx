@@ -1,0 +1,54 @@
+- name: Create a VIP, pool and pool members
+  hosts: localhost
+  connection: local
+  vars:
+    provider:
+      password: Ca-GIP1!
+      server: f5-bigip-1.lab.prodinfo.gca
+      user: admin
+      validate_certs: no
+      server_port: 443
+    vs_name: TestAWX
+    vs_ip: 10.20.30.40
+
+
+  # vars:
+  #   - name: vs_name
+  #     prompt: "VS Name"
+  #     private: no
+  #   - name: vs_ip
+  #     prompt: "VS IP"
+  #     private: no
+
+
+  tasks:
+    - name: Create a pool
+      bigip_pool:
+        provider: "{{ provider }}"
+        lb_method: ratio-member
+        name: "{{ vs_name }}_pool"
+      delegate_to: localhost
+
+    - name: Create SNAT Pool
+      bigip_snat_pool:
+        provider: "{{ provider }}"
+        name: "{{ vs_name }}_snat_pool"
+        members:
+          - "{{ vs_ip }}"
+      delegate_to: localhost
+    - name: Create SSL Profile
+      bigip_profile_client_ssl:
+        provider: "{{ provider }}"
+        name: "{{ vs_name }}_ssl_profile"
+    - name: Create a VIP
+      bigip_virtual_server:
+        provider: "{{ provider }}"
+        destination: "{{ vs_ip }}"
+        name: "{{ vs_name }}"
+        pool: "{{ vs_name }}_pool"
+        port: 443
+        snat: "/Common/{{ vs_name }}_snat_pool"
+        profiles:
+          - http
+          - "/Common/{{ vs_name }}_ssl_profile"
+      delegate_to: localhost
